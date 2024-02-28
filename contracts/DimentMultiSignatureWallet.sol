@@ -7,10 +7,13 @@ error AlreadyOwner(address user);
 error OwnerNotFound(address user);
 error CallerIsNotItsSelf();
 error TxNotExists(uint16 txId);
+error TxNotConfirmed(uint16 txId);
 error AlreadyExecuted(uint16 txId);
 error AlreadyCorfirmed(uint16 txId);
 error NullAdress();
 error NotVaildRequirement();
+error ZeroAddress();
+error NotEnoughConfirmation();
 
 contract DimentMultiSignatureWallet {
     event Deposit(address indexed sender, uint256 amount, uint256 balance);
@@ -25,8 +28,8 @@ contract DimentMultiSignatureWallet {
     event RevokeConfirmation(address indexed owner, uint16 indexed txIndex);
     event ExecuteTransaction(address indexed owner, uint16 indexed txIndex);
 
-    event OwnerAddition(address indexed owner);
-    event OwnerRemoval(address indexed owner);
+    event OwnerAdded(address indexed owner);
+    event OwnerRemoved(address indexed owner);
     event RequirementChange(uint8 required);
 
     address[] private _owners;
@@ -118,9 +121,9 @@ contract DimentMultiSignatureWallet {
     // @dev check requirements for owner and required wallets
     modifier validRequirement(uint8 ownerCount, uint8 _required) {
         if (
-            ownerCount > _MAX_OWNER_COUNT &&
-            _required > ownerCount &&
-            _required == 0 &&
+            ownerCount >= _MAX_OWNER_COUNT ||
+            _required > ownerCount ||
+            _required == 0 ||
             ownerCount == 0
         ) {
             revert NotVaildRequirement();
@@ -136,24 +139,37 @@ contract DimentMultiSignatureWallet {
      */
     //
     constructor(address[] memory owners_, uint8 numConfirmationsRequired_) {
-        require(owners_.length > 0, "owners required");
-        require(
-            numConfirmationsRequired_ > 0 &&
-                numConfirmationsRequired_ <= owners_.length,
-            "invalid number of required confirmations"
-        );
+        if (owners_.length == 0) {
+            revert NotVaildRequirement();
+        }
+
+        if (
+            numConfirmationsRequired_ == 0 ||
+            numConfirmationsRequired_ > owners_.length
+        ) {
+            revert NotVaildRequirement();
+        }
+
+        // to not use storage
+        uint8 _ownersCount;
 
         for (uint8 i = 0; i < owners_.length; i++) {
             address owner = owners_[i];
 
-            require(owner != address(0), "invalid owner");
-            require(!isOwner[owner], "owner not unique");
+            if (owner == address(0)) {
+                revert ZeroAddress();
+            }
+            if (isOwner[owner]) {
+                revert AlreadyOwner(owner);
+            }
 
             isOwner[owner] = true;
             _owners.push(owner);
-            ownersCount++;
+            _ownersCount++;
         }
 
+        // set memory value to storage
+        ownersCount = _ownersCount;
         numConfirmationsRequired = numConfirmationsRequired_;
     }
 
@@ -221,19 +237,18 @@ contract DimentMultiSignatureWallet {
     ) external onlyOwner txExists(txIndex_) notExecuted(txIndex_) {
         Transaction storage transaction = transactions[txIndex_];
 
-        require(
-            transaction.numConfirmations >= numConfirmationsRequired,
-            "cannot execute tx"
-        );
+        if (transaction.numConfirmations < numConfirmationsRequired) {
+            revert NotEnoughConfirmation();
+        }
 
         transaction.executed = 1;
+
+        emit ExecuteTransaction(msg.sender, txIndex_);
 
         (bool success, ) = transaction.to.call{value: transaction.value}(
             transaction.data
         );
         require(success, "tx failed");
-
-        emit ExecuteTransaction(msg.sender, txIndex_);
     }
 
     /**
@@ -246,7 +261,9 @@ contract DimentMultiSignatureWallet {
     ) external onlyOwner txExists(txIndex_) notExecuted(txIndex_) {
         Transaction storage transaction = transactions[txIndex_];
 
-        require(isConfirmed[txIndex_][msg.sender], "tx not confirmed");
+        if (!isConfirmed[txIndex_][msg.sender]) {
+            revert TxNotConfirmed(txIndex_);
+        }
 
         transaction.numConfirmations -= 1;
         isConfirmed[txIndex_][msg.sender] = false;
@@ -308,7 +325,7 @@ contract DimentMultiSignatureWallet {
         isOwner[owner_] = true;
         _owners.push(owner_);
         ownersCount++;
-        emit OwnerAddition(owner_);
+        emit OwnerAdded(owner_);
     }
 
     /**
@@ -328,8 +345,8 @@ contract DimentMultiSignatureWallet {
             }
         isOwner[owner_] = false;
         isOwner[newOwner_] = true;
-        emit OwnerRemoval(owner_);
-        emit OwnerAddition(newOwner_);
+        emit OwnerRemoved(owner_);
+        emit OwnerAdded(newOwner_);
     }
 
     /**
@@ -351,9 +368,11 @@ contract DimentMultiSignatureWallet {
         _owners.pop();
         ownersCount--;
 
-        if (numConfirmationsRequired > ownersCount)
+        if (numConfirmationsRequired > ownersCount) {
             changeRequirement(ownersCount);
-        emit OwnerRemoval(owner_);
+        }
+
+        emit OwnerRemoved(owner_);
     }
 
     /**
