@@ -7,16 +7,6 @@
 const { ethers, upgrades } = require('hardhat');
 
 async function main() {
-  const dimentDollar = await ethers.getContractFactory('DimentDollar');
-  const _diment = await upgrades.deployProxy(dimentDollar, [
-    'Diment Dollar',
-    'DD',
-    6,
-  ]);
-  await _diment.waitForDeployment();
-
-  console.log('Diment Dollar deployed to:', await _diment.getAddress());
-
   const _multisigwallet = await ethers.deployContract(
     'DimentMultiSignatureWallet',
     [
@@ -31,6 +21,19 @@ async function main() {
 
   await _multisigwallet.waitForDeployment();
   console.log('MultiSig deployed to:', await _multisigwallet.getAddress());
+
+  const dimentDollar = await ethers.getContractFactory('DimentDollar');
+  const _diment = await upgrades.deployProxy(dimentDollar, [
+    'Diment Dollar',
+    'DD',
+    6,
+    await _multisigwallet.getAddress()
+  ]);
+  await _diment.waitForDeployment();
+
+  console.log('Diment Dollar deployed to:', await _diment.getAddress());
+
+
 
   const _dimentStake = await ethers.deployContract('DimentDollarStake', [
     await _diment.getAddress(),

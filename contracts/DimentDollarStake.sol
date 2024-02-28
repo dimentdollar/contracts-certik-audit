@@ -162,7 +162,7 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
 
     address public stakeFeeAddress;
 
-    uint32 public emergencyFee = 2500; // 25%
+    uint32 public emergencyFee = 2_500; // 25%
     uint32 public stakeFee = 0; // 0%
     uint32 public stakePlus = 0; // 0%
 
@@ -228,7 +228,7 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
         if (rate == 0 || stakeRates[rate] == 0) {
             revert CanNotSetToZero();
         }
-        if (rate >= MAX_STAKE_RATE) {
+        if (rate > MAX_STAKE_RATE) {
             revert NotInRange();
         }
 
@@ -241,7 +241,7 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
             revert CanNotSetToZero();
         }
 
-        if (rate >= MAX_STAKE_RATE) {
+        if (rate > MAX_STAKE_RATE) {
             revert NotInRange();
         }
         minHarvestRate = rate;
@@ -279,9 +279,7 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
     }
 
     // @dev check address stake plus status
-    function isStakePlusAddress(
-        address wallet
-    ) external view returns (uint256) {
+    function isStakePlusAddress(address wallet) external view returns (uint8) {
         return stakePlusAddress[wallet];
     }
 
@@ -291,7 +289,7 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
             revert CanNotSetToZero();
         }
 
-        if (rate >= MAX_STAKE_RATE) {
+        if (rate > MAX_STAKE_RATE) {
             revert NotInRange();
         }
 
