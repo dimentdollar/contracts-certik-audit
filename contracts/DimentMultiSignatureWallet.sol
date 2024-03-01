@@ -31,6 +31,7 @@ contract DimentMultiSignatureWallet {
     event OwnerAdded(address indexed owner);
     event OwnerRemoved(address indexed owner);
     event RequirementChange(uint8 required);
+    event ETHRemoved(address to);
 
     address[] private _owners;
     uint8 internal ownersCount;
@@ -151,9 +152,9 @@ contract DimentMultiSignatureWallet {
         }
 
         // to not use storage
-        uint8 _ownersCount;
+        uint8 i;
 
-        for (uint8 i = 0; i < owners_.length; i++) {
+        for (i = 0; i < owners_.length; i++) {
             address owner = owners_[i];
 
             if (owner == address(0)) {
@@ -165,11 +166,11 @@ contract DimentMultiSignatureWallet {
 
             isOwner[owner] = true;
             _owners.push(owner);
-            _ownersCount++;
         }
 
         // set memory value to storage
-        ownersCount = _ownersCount;
+        ownersCount = i;
+
         numConfirmationsRequired = numConfirmationsRequired_;
     }
 
@@ -396,5 +397,6 @@ contract DimentMultiSignatureWallet {
         require(address(this).balance > 0, "ERC20: zero native balance");
         (bool sent, ) = to_.call{value: address(this).balance}("");
         require(sent, "ERC20: ETH_TX_FAIL on recover ETH");
+        emit ETHRemoved(to_);
     }
 }

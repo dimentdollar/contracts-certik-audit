@@ -139,8 +139,15 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
     // owner events
     event StakeFeeChanged(uint256 feepercent);
     event StakeRateSetted(uint256 amount);
-    event EmergenyWithdrawFeeChanged(uint256 percent);
-    event StakePlusAmountChanged(uint256 percent);
+    event EmergenyWithdrawFeeChanged(uint32 percent);
+    event MaxEmergencyWithdrawRateChange(uint32 percent);
+    event MinHarvestRateChange(uint32 rate);
+    event MinStakeAmountChanged(uint256 amount);
+    event StakePlusAmountChanged(uint32 percent);
+    event StakePlusAddressAdded(address[] wallets);
+    event StakePlusAddressStatusChanges(address wallet);
+    event StakeFeeAddressChanged(address wallet);
+    event RewardsFromContract(uint256 amount);
 
     IERC20Permit public immutable dimentDollar;
     struct Stake {
@@ -233,6 +240,7 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
         }
 
         maxEmergencyWithdrawRate = rate;
+        emit MaxEmergencyWithdrawRateChange(rate);
     }
 
     // @dev harvest rate limit changer
@@ -245,6 +253,7 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
             revert NotInRange();
         }
         minHarvestRate = rate;
+        emit MinHarvestRateChange(rate);
     }
 
     // @dev min stake amount changer
@@ -253,21 +262,25 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
             revert AmountNotInRange();
         }
         minStakeAmount = amount;
+        emit MinStakeAmountChanged(amount);
     }
 
     // @dev add stake plus addresses to mapping
     function addStakePlusAddress(
         address[] calldata wallets
     ) external onlyOwner {
-        if (wallets.length > 100) {
+        uint _walletLength = wallets.length;
+
+        if (_walletLength > 100) {
             revert OverMaxSetLimit();
         }
-        for (uint i = 0; i < wallets.length; i++) {
+        for (uint i = 0; i < _walletLength; i++) {
             if (wallets[i] == address(0)) {
                 revert ZeroAddress();
             }
             stakePlusAddress[wallets[i]] = 1;
         }
+        emit StakePlusAddressAdded(wallets);
     }
 
     // @dev remove address from stake plus mapping cant get plus earning
@@ -276,6 +289,7 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
             revert ZeroAddress();
         }
         stakePlusAddress[wallet] = 0;
+        emit StakePlusAddressStatusChanges(wallet);
     }
 
     // @dev check address stake plus status
@@ -344,6 +358,7 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
             revert ZeroAddress();
         }
         stakeFeeAddress = wallet;
+        emit StakeFeeAddressChanged(wallet);
     }
 
     // @dev this function is for frontend easy calculations
@@ -725,7 +740,7 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
     function removeRewardsFromContract(
         address to,
         uint256 amount
-    ) public onlyOwner returns (uint256) {
+    ) public onlyOwner {
         uint256 _contractBalance = dimentDollar.balanceOf(address(this));
         uint256 _rewardInContract = _contractBalance - totalStakedAmount;
 
@@ -734,6 +749,6 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
         }
 
         require(dimentDollar.transfer(to, amount), "Reward transfer error");
-        return _rewardInContract;
+        emit RewardsFromContract(amount);
     }
 }
