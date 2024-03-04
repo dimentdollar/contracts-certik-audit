@@ -625,7 +625,8 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
 
     // @dev exit internal
     function _exit(Stake memory stakeToExit) internal returns (uint256) {
-        uint256 rewardAmount = (stakeToExit.rewardRatio * stakeToExit.amount) /
+        uint256 stakeAmount = stakeToExit.amount;
+        uint256 rewardAmount = (stakeToExit.rewardRatio * stakeAmount) /
             PERCENT_DIVIDER;
 
         uint256 rewardsLeftInContract = getRewardsLeft();
@@ -634,13 +635,13 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
             rewardAmount = rewardsLeftInContract;
         }
 
-        totalStakedAmount -= stakeToExit.amount;
+        totalStakedAmount -= stakeAmount;
 
-        totalStakesByRate[stakeToExit.rate] -= stakeToExit.amount;
+        totalStakesByRate[stakeToExit.rate] -= stakeAmount;
 
         totalStakeRewardClaimed += rewardAmount;
 
-        return stakeToExit.amount + rewardAmount;
+        return stakeAmount + rewardAmount;
     }
 
     // @dev user can withdraw before time finish but should pay fee
