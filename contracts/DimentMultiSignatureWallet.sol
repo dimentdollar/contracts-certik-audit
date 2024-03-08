@@ -396,8 +396,7 @@ contract DimentMultiSignatureWallet {
         require(to_ != address(0), "ERC20: transfer to the zero address");
         require(address(this).balance > 0, "ERC20: zero native balance");
 
-        emit ETHRemoved(to_); // event emitted before the external call
-
+        emit ETHRemoved(to_);
         (bool sent, ) = to_.call{value: address(this).balance}("");
         require(sent, "ERC20: ETH_TX_FAIL on recover ETH");
     }

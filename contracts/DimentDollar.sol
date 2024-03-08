@@ -41,16 +41,14 @@ contract DimentDollar is
      * @param name_ The name of the token.
      * @param symbol_ The symbol of the token.
      * @param decimal_ The decimal precision of the token.
-     * @param mscontract_ The address of the multi-signature wallet contract.
      */
     function initialize(
         string memory name_,
         string memory symbol_,
-        uint8 decimal_,
-        address mscontract_
+        uint8 decimal_
     ) external initializer {
         ddDecimal = decimal_;
-        __Ownable_init(mscontract_);
+        __Ownable_init(_msgSender());
         __ERC20_init(name_, symbol_);
         __ERC20Permit_init(name_);
     }

@@ -20,6 +20,8 @@ error ZeroRewardHarvest();
 error NoRewardLeftInContract();
 error CannotExitThisStake();
 error ContractBalanceNotEnough();
+error CanNotAddZero();
+error NotEnoughTokensForStakeReward();
 
 interface IERC20Permit {
     event Transfer(address indexed from, address indexed to, uint256 value);
@@ -148,6 +150,7 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
     event StakePlusAddressStatusChanges(address wallet);
     event StakeFeeAddressChanged(address wallet);
     event RewardsFromContract(uint256 amount);
+    event RewardsAddedToContract(uint256 amount);
 
     IERC20Permit public immutable dimentDollar;
     struct Stake {
@@ -166,6 +169,7 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
 
     uint256 public totalStakedAmount;
     uint256 public totalStakeRewardClaimed;
+    uint256 public totalRewardsLeft;
 
     address public stakeFeeAddress;
 
@@ -226,6 +230,12 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
         uint256 _addressBalance = dimentDollar.balanceOf(msg.sender);
         if (_addressBalance < amount) {
             revert NotEnoughTokens();
+        }
+
+        // toplam stake reward kazanacagi miktardan az mi cok mu
+        uint256 rewardAmount = (stakeRates[rate] * amount) / PERCENT_DIVIDER;
+        if (rewardAmount > totalRewardsLeft) {
+            revert NotEnoughTokensForStakeReward();
         }
         _;
     }
@@ -475,6 +485,10 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
         totalStakesByRate[rate] += stakeAmount;
         totalStakedAmount += stakeAmount;
 
+        // calculate rewards
+        uint256 rewardAmount = (stakeRates[rate] * amount) / PERCENT_DIVIDER;
+        totalRewardsLeft -= rewardAmount;
+
         Stake memory stakeToSave = Stake({
             user: wallet,
             amount: stakeAmount,
@@ -496,12 +510,6 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
         );
 
         return _id;
-    }
-
-    // @dev get rewards in pool
-    function getRewardsLeft() public view returns (uint256) {
-        uint256 contractTotalBalance = dimentDollar.balanceOf(address(this));
-        return contractTotalBalance - totalStakedAmount;
     }
 
     // @dev calculate stake reward
@@ -536,27 +544,38 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
             revert ZeroRewardHarvest();
         }
 
+        // check user can make stake again
+        // every harvest is update time so need to check stake reward left in contract
+        uint256 rewardAmount = (stakeToHarvest.rewardRatio *
+            stakeToHarvest.amount) / PERCENT_DIVIDER;
+
+        if (rewardAmount > totalRewardsLeft - stakeMonthlyReward) {
+            revert NotEnoughTokensForStakeReward();
+        }
+
         // total rewards update
         totalStakeRewardClaimed += stakeMonthlyReward;
 
+        // total claim update
+        totalRewardsLeft -= stakeMonthlyReward;
+
         // stake time update with timestamp
         stakedToken[id].since = block.timestamp;
+
+        emit Harvested(msg.sender, stakeMonthlyReward);
 
         // wallet recive tokens
         require(
             dimentDollar.transfer(msg.sender, stakeMonthlyReward),
             "Transfer Error"
         );
-
-        emit Harvested(msg.sender, stakeMonthlyReward);
     }
 
     // @dev harvest internal
     function _harvest(
         Stake memory stakeToHarvest
     ) internal view returns (uint256) {
-        uint256 rewardsLeftInContract = getRewardsLeft();
-        if (rewardsLeftInContract == 0) {
+        if (totalRewardsLeft == 0) {
             revert NoRewardLeftInContract();
         }
 
@@ -588,8 +607,8 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
             revert ZeroRewardHarvest();
         }
 
-        if (rewardsLeftInContract < stakeRewardAmount) {
-            stakeRewardAmount = rewardsLeftInContract;
+        if (totalRewardsLeft < stakeRewardAmount) {
+            stakeRewardAmount = totalRewardsLeft;
         }
 
         return stakeRewardAmount;
@@ -615,12 +634,11 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
 
         uint256 stakeAndReward = _exit(stakeToExit);
 
+        emit Exited(stakeToExit.user, stakeAndReward);
         require(
             dimentDollar.transfer(stakeToExit.user, stakeAndReward),
             "Transfer Error"
         );
-
-        emit Exited(stakeToExit.user, stakeAndReward);
     }
 
     // @dev exit internal
@@ -629,13 +647,14 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
         uint256 rewardAmount = (stakeToExit.rewardRatio * stakeAmount) /
             PERCENT_DIVIDER;
 
-        uint256 rewardsLeftInContract = getRewardsLeft();
-
-        if (rewardsLeftInContract < rewardAmount) {
-            rewardAmount = rewardsLeftInContract;
+        if (totalRewardsLeft < rewardAmount) {
+            rewardAmount = totalRewardsLeft;
         }
 
         totalStakedAmount -= stakeAmount;
+
+        // rewards moved from contract
+        totalRewardsLeft -= rewardAmount;
 
         totalStakesByRate[stakeToExit.rate] -= stakeAmount;
 
@@ -648,20 +667,22 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
     function emergencyWithdraw(
         uint16 id
     ) external nonReentrant onlyEOA onlyStakesExist {
-        if (msg.sender != stakedToken[id].user) {
+        Stake memory stakeToExit = stakedToken[id];
+
+        if (msg.sender != stakeToExit.user) {
             revert NotYourToken();
         }
 
-        if (stakedToken[id].isActive == 0) {
+        if (stakeToExit.isActive == 0) {
             revert StakeIsNotActive();
         }
 
-        if (stakedToken[id].rate > maxEmergencyWithdrawRate) {
+        if (stakeToExit.rate > maxEmergencyWithdrawRate) {
             revert CannotExitThisStake();
         }
 
         // to not use storage
-        uint256 _stakedTokenAmount = stakedToken[id].amount;
+        uint256 _stakedTokenAmount = stakeToExit.amount;
 
         if (dimentDollar.balanceOf(address(this)) < _stakedTokenAmount) {
             revert ContractBalanceNotEnough();
@@ -671,7 +692,13 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
 
         totalStakedAmount -= _stakedTokenAmount;
 
-        totalStakesByRate[stakedToken[id].rate] -= _stakedTokenAmount;
+        totalStakesByRate[stakeToExit.rate] -= _stakedTokenAmount;
+
+        // no rewards for user
+        // we shouldupdate reward amount with exited not rewarded stake details
+        uint256 rewardAmount = (stakeToExit.rewardRatio * stakeToExit.amount) /
+            PERCENT_DIVIDER;
+        totalRewardsLeft += rewardAmount;
 
         uint256 feeAmount = 0;
 
@@ -684,11 +711,10 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
             );
         }
 
+        emit EmergenyWithdrawed(msg.sender, _stakedTokenAmount);
         uint256 afterFee = _stakedTokenAmount - feeAmount;
         // send balance after fee staked tokens to user
         require(dimentDollar.transfer(msg.sender, afterFee), "Transfer Error");
-
-        emit EmergenyWithdrawed(msg.sender, _stakedTokenAmount);
     }
 
     // @dev easy for frontend all ids
@@ -738,18 +764,34 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
         return totalStaked;
     }
 
+    // stakedekileri koruyacak
     function removeRewardsFromContract(
         address to,
         uint256 amount
-    ) public onlyOwner {
+    )
+        public
+        nonReentrant // nonReentrant modifier added
+        onlyOwner
+    {
         uint256 _contractBalance = dimentDollar.balanceOf(address(this));
-        uint256 _rewardInContract = _contractBalance - totalStakedAmount;
+        uint256 _afterBalance = _contractBalance -
+            (totalStakedAmount + totalRewardsLeft);
 
-        if (amount > _rewardInContract) {
-            amount = _rewardInContract;
+        if (amount > _afterBalance) {
+            amount = _afterBalance;
         }
 
+        emit RewardsFromContract(amount); // event emitted before the external call
+
         require(dimentDollar.transfer(to, amount), "Reward transfer error");
-        emit RewardsFromContract(amount);
+    }
+
+    // use this function to add rewards to contract
+    function addRewardsToContract(uint256 amount) public nonReentrant {
+        if (amount == 0) {
+            revert CanNotAddZero();
+        }
+        totalRewardsLeft += amount;
+        emit RewardsAddedToContract(amount);
     }
 }
