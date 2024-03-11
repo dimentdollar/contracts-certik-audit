@@ -485,8 +485,9 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
         totalStakesByRate[rate] += stakeAmount;
         totalStakedAmount += stakeAmount;
 
-        // calculate rewards
-        uint256 rewardAmount = (stakeRates[rate] * amount) / PERCENT_DIVIDER;
+        // calculate rewards via staked amount
+        uint256 rewardAmount = (stakeRates[rate] * stakeAmount) /
+            PERCENT_DIVIDER;
         totalRewardsLeft -= rewardAmount;
 
         Stake memory stakeToSave = Stake({
@@ -556,7 +557,7 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
         // total rewards update
         totalStakeRewardClaimed += stakeMonthlyReward;
 
-        // total claim update
+        // total rewards claim update
         totalRewardsLeft -= stakeMonthlyReward;
 
         // stake time update with timestamp
@@ -647,17 +648,12 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
         uint256 rewardAmount = (stakeToExit.rewardRatio * stakeAmount) /
             PERCENT_DIVIDER;
 
-        if (totalRewardsLeft < rewardAmount) {
-            rewardAmount = totalRewardsLeft;
-        }
-
         totalStakedAmount -= stakeAmount;
-
-        // rewards moved from contract
-        totalRewardsLeft -= rewardAmount;
-
         totalStakesByRate[stakeToExit.rate] -= stakeAmount;
 
+        // total rewards claim update
+        totalRewardsLeft -= rewardAmount;
+        // total rewards given update
         totalStakeRewardClaimed += rewardAmount;
 
         return stakeAmount + rewardAmount;
@@ -791,7 +787,12 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
         if (amount == 0) {
             revert CanNotAddZero();
         }
-        totalRewardsLeft += amount;
+
         emit RewardsAddedToContract(amount);
+        require(
+            dimentDollar.transferFrom(msg.sender, address(this), amount),
+            "Transfer Error"
+        );
+        totalRewardsLeft += amount;
     }
 }
