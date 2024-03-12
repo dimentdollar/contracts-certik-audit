@@ -129,24 +129,27 @@ contract DimentDollar is
         address[] memory recipients_,
         uint256[] memory amounts_
     ) external onlyNotBlacklisted {
-        if (recipients_.length > 50) {
-            revert MoreThenLimit();
-        }
         if (recipients_.length != amounts_.length) {
             revert LengthMismatch(recipients_.length, amounts_.length);
+        }
+        // array are same length
+        uint256 arrLength = amounts_.length;
+
+        if (arrLength > 50) {
+            revert MoreThenLimit();
         }
 
         uint256 totalSend = 0;
         uint256 _balance = super.balanceOf(_msgSender());
 
-        for (uint8 i = 0; i < amounts_.length; i++) {
+        for (uint8 i = 0; i < arrLength; i++) {
             totalSend = totalSend + amounts_[i];
         }
         if (_balance < totalSend) {
             revert NotEnoughTokens();
         }
 
-        for (uint8 i = 0; i < recipients_.length; i++) {
+        for (uint8 i = 0; i < arrLength; i++) {
             transfer(recipients_[i], amounts_[i]);
         }
     }

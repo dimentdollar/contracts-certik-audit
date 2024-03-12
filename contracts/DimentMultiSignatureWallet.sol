@@ -140,13 +140,14 @@ contract DimentMultiSignatureWallet {
      */
     //
     constructor(address[] memory owners_, uint8 numConfirmationsRequired_) {
-        if (owners_.length == 0) {
+        uint256 arrLength = owners_.length;
+        if (arrLength == 0) {
             revert NotVaildRequirement();
         }
 
         if (
             numConfirmationsRequired_ == 0 ||
-            numConfirmationsRequired_ > owners_.length
+            numConfirmationsRequired_ > arrLength
         ) {
             revert NotVaildRequirement();
         }
@@ -154,7 +155,7 @@ contract DimentMultiSignatureWallet {
         // to not use storage
         uint8 i;
 
-        for (i = 0; i < owners_.length; i++) {
+        for (i = 0; i < arrLength; i++) {
             address owner = owners_[i];
 
             if (owner == address(0)) {
