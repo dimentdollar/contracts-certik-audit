@@ -650,8 +650,6 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
         totalStakedAmount -= stakeAmount;
         totalStakesByRate[stakeToExit.rate] -= stakeAmount;
 
-        // total rewards claim update
-        totalRewardsLeft -= rewardAmount;
         // total rewards given update
         totalStakeRewardClaimed += rewardAmount;
 
@@ -759,7 +757,7 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
         return totalStaked;
     }
 
-    // stakedekileri koruyacak
+    // should not the already staked tokens
     function removeRewardsFromContract(
         address to,
         uint256 amount
