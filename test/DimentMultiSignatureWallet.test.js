@@ -1,13 +1,13 @@
-const { expect } = require('chai');
-const { Big } = require('big.js');
-const hre = require('hardhat');
+const { expect } = require("chai");
+const { Big } = require("big.js");
+const hre = require("hardhat");
 
-describe('Diment Multi Signature Wallet', function () {
+describe("Diment Multi Signature Wallet", function () {
   // We define a fixture to reuse the same setup in every test.
   // We use loadFixture to run this setup once, snapshot that state,
   // and reset Hardhat Network to that snapshot in every test.
-  let _mintAmount = hre.ethers.parseUnits('1000000', 18);
-  let _multisendAmount = hre.ethers.parseUnits('500000', 18);
+  let _mintAmount = hre.ethers.parseUnits("1000000", 18);
+  let _multisendAmount = hre.ethers.parseUnits("500000", 18);
 
   let _totalSupply = Big(0);
   let _contractProxy = null;
@@ -31,16 +31,16 @@ describe('Diment Multi Signature Wallet', function () {
   before(async () => {
     [owner, addr1, addr2, addr3, addr4, addr5, addr6] =
       await hre.ethers.getSigners();
-    const DimentDollar = await hre.ethers.getContractFactory('DimentDollar');
+    const DimentDollar = await hre.ethers.getContractFactory("DimentDollar");
 
     _contractProxy = await hre.upgrades.deployProxy(DimentDollar, [
-      'Diment Dollar',
-      'DD',
+      "Diment Dollar",
+      "DD",
       6,
     ]);
 
     _contractMultiSig = await hre.ethers.deployContract(
-      'DimentMultiSignatureWallet',
+      "DimentMultiSignatureWallet",
       [
         [
           owner.address,
@@ -56,73 +56,73 @@ describe('Diment Multi Signature Wallet', function () {
     _multiSigAddress = await _contractMultiSig.getAddress();
   });
 
-  describe('Deployment', function () {
-    it('Should set the name Diment Dollar', async function () {
-      expect(await _contractProxy.name()).to.equal('Diment Dollar');
+  describe("Deployment", function () {
+    it("Should set the name Diment Dollar", async function () {
+      expect(await _contractProxy.name()).to.equal("Diment Dollar");
     });
 
-    it('Should set the symbol ZDD', async function () {
-      expect(await _contractProxy.symbol()).to.equal('DD');
+    it("Should set the symbol ZDD", async function () {
+      expect(await _contractProxy.symbol()).to.equal("DD");
     });
 
-    it('Should set the 18 decimals', async function () {
+    it("Should set the 18 decimals", async function () {
       expect(await _contractProxy.decimals()).to.equal(6);
     });
 
-    it('Should set the right owner', async function () {
+    it("Should set the right owner", async function () {
       expect(await _contractProxy.owner()).to.equal(owner.address);
     });
 
-    it('Total Supply is Zero', async function () {
-      expect(await _contractProxy.totalSupply()).to.equal('0');
+    it("Total Supply is Zero", async function () {
+      expect(await _contractProxy.totalSupply()).to.equal("0");
     });
 
-    it('Permit nonces is Zero', async function () {
-      expect(await _contractProxy.nonces(owner.address)).to.equal('0');
-      expect(await _contractProxy.nonces(addr1.address)).to.equal('0');
+    it("Permit nonces is Zero", async function () {
+      expect(await _contractProxy.nonces(owner.address)).to.equal("0");
+      expect(await _contractProxy.nonces(addr1.address)).to.equal("0");
     });
 
-    it('Not Blacklisted', async function () {
+    it("Not Blacklisted", async function () {
       expect(await _contractProxy.isBlacklisted(addr1.address)).to.equal(false);
       expect(await _contractProxy.isBlacklisted(addr2.address)).to.equal(false);
     });
 
-    it('Zero Balance', async function () {
-      expect(await _contractProxy.balanceOf(owner.address)).to.equal('0');
-      expect(await _contractProxy.balanceOf(addr1.address)).to.equal('0');
+    it("Zero Balance", async function () {
+      expect(await _contractProxy.balanceOf(owner.address)).to.equal("0");
+      expect(await _contractProxy.balanceOf(addr1.address)).to.equal("0");
     });
 
-    it('Zero Allowance', async function () {
+    it("Zero Allowance", async function () {
       expect(
         await _contractProxy.allowance(owner.address, addr1.address)
-      ).to.equal('0');
+      ).to.equal("0");
       expect(
         await _contractProxy.allowance(addr1.address, addr2.address)
-      ).to.equal('0');
+      ).to.equal("0");
     });
   });
 
-  describe('Multi Signature Wallet Main Inside Functions', () => {
-    it('Transfer Ownership from account[0] to multisigwallet', async () => {
+  describe("Multi Signature Wallet Main Inside Functions", () => {
+    it("Transfer Ownership from account[0] to multisigwallet", async () => {
       await _contractProxy.transferOwnership(_multiSigAddress);
       const _newOwner = await _contractProxy.owner();
       expect(_newOwner).to.equal(_multiSigAddress);
     });
 
-    it('Multi Sig wallet required approve count is correct', async () => {
+    it("Multi Sig wallet required approve count is correct", async () => {
       const result = await _contractMultiSig.numConfirmationsRequired();
       expect(+result.toString()).to.equal(requiredOwners);
     });
 
-    it('Transaction list is empty', async () => {
+    it("Transaction list is empty", async () => {
       const result = await _contractMultiSig.getTransactionCount();
       expect(+result.toString()).to.equal(transactionCount);
     });
 
-    it('Change requirement for approve', async () => {
+    it("Change requirement for approve", async () => {
       requiredOwners = 3;
       transactionData = await _contractMultiSig.interface.encodeFunctionData(
-        'changeRequirement',
+        "changeRequirement",
         [3]
       );
 
@@ -139,24 +139,24 @@ describe('Diment Multi Signature Wallet', function () {
       }
     });
 
-    it('Transaction list is updated', async () => {
+    it("Transaction list is updated", async () => {
       const result = await _contractMultiSig.getTransactionCount();
       expect(+result.toString()).to.equal(transactionCount);
     });
 
-    it('Required approve count transaction data is correct', async () => {
+    it("Required approve count transaction data is correct", async () => {
       const result = await _contractMultiSig.getTransaction(
         currentTransactionId
       );
 
       expect(result.to.toString()).to.equal(_multiSigAddress);
-      expect(result.value.toString()).to.equal('0');
+      expect(result.value.toString()).to.equal("0");
       expect(result.data.toString()).to.equal(transactionData);
-      expect(result.executed).to.equal('0');
-      expect(result.numConfirmations.toString()).to.equal('0');
+      expect(result.executed).to.equal("0");
+      expect(result.numConfirmations.toString()).to.equal("0");
     });
 
-    it('Transaction will approve with account[1]', async () => {
+    it("Transaction will approve with account[1]", async () => {
       try {
         await _contractMultiSig
           .connect(addr1)
@@ -167,19 +167,19 @@ describe('Diment Multi Signature Wallet', function () {
       }
     });
 
-    it('Required approve count transaction data is correct after x1 confirmation', async () => {
+    it("Required approve count transaction data is correct after x1 confirmation", async () => {
       const result = await _contractMultiSig.getTransaction(
         currentTransactionId
       );
 
       expect(result.to.toString()).to.equal(_multiSigAddress);
-      expect(result.value.toString()).to.equal('0');
+      expect(result.value.toString()).to.equal("0");
       expect(result.data.toString()).to.equal(transactionData);
-      expect(result.executed).to.equal('0');
-      expect(result.numConfirmations.toString()).to.equal('1');
+      expect(result.executed).to.equal("0");
+      expect(result.numConfirmations.toString()).to.equal("1");
     });
 
-    it('Transaction will not approve second time with account[1]', async () => {
+    it("Transaction will not approve second time with account[1]", async () => {
       try {
         await _contractMultiSig
           .connect(addr1)
@@ -192,7 +192,7 @@ describe('Diment Multi Signature Wallet', function () {
       }
     });
 
-    it('Transaction cannot execute with 1 confirmation', async () => {
+    it("Transaction cannot execute with 1 confirmation", async () => {
       try {
         await _contractMultiSig
           .connect(addr2)
@@ -203,7 +203,7 @@ describe('Diment Multi Signature Wallet', function () {
       }
     });
 
-    it('Transaction will approve with account[0]', async () => {
+    it("Transaction will approve with account[0]", async () => {
       try {
         await _contractMultiSig
           .connect(owner)
@@ -214,19 +214,19 @@ describe('Diment Multi Signature Wallet', function () {
       }
     });
 
-    it('Required approve count transaction data is correct after x2 confirmation', async () => {
+    it("Required approve count transaction data is correct after x2 confirmation", async () => {
       const result = await _contractMultiSig.getTransaction(
         currentTransactionId
       );
 
       expect(result.to.toString()).to.equal(_multiSigAddress);
-      expect(result.value.toString()).to.equal('0');
+      expect(result.value.toString()).to.equal("0");
       expect(result.data.toString()).to.equal(transactionData);
-      expect(result.executed).to.equal('0');
-      expect(result.numConfirmations.toString()).to.equal('2');
+      expect(result.executed).to.equal("0");
+      expect(result.numConfirmations.toString()).to.equal("2");
     });
 
-    it('Transaction will execute from account[3]', async () => {
+    it("Transaction will execute from account[3]", async () => {
       try {
         await _contractMultiSig
           .connect(addr2)
@@ -237,19 +237,19 @@ describe('Diment Multi Signature Wallet', function () {
       }
     });
 
-    it('Trnasaction executed', async () => {
+    it("Trnasaction executed", async () => {
       const result = await _contractMultiSig.getTransaction(
         currentTransactionId
       );
 
       expect(result.to.toString()).to.equal(_multiSigAddress);
-      expect(result.value.toString()).to.equal('0');
+      expect(result.value.toString()).to.equal("0");
       expect(result.data.toString()).to.equal(transactionData);
-      expect(result.executed).to.equal('1');
-      expect(result.numConfirmations.toString()).to.equal('2');
+      expect(result.executed).to.equal("1");
+      expect(result.numConfirmations.toString()).to.equal("2");
     });
 
-    it('Transaction cannot execute again', async () => {
+    it("Transaction cannot execute again", async () => {
       try {
         await _contractMultiSig
           .connect(addr2)
@@ -260,17 +260,17 @@ describe('Diment Multi Signature Wallet', function () {
       }
     });
 
-    it('Multi Sig wallet required approve count is correct', async () => {
+    it("Multi Sig wallet required approve count is correct", async () => {
       const result = await _contractMultiSig.numConfirmationsRequired();
       expect(+result.toString()).to.equal(requiredOwners);
     });
 
-    it('Remove addr4 from owners', async () => {
+    it("Remove addr4 from owners", async () => {
       //remove last
       owners.pop();
 
       transactionData = await _contractMultiSig.interface.encodeFunctionData(
-        'removeOwner',
+        "removeOwner",
         [addr4.address]
       );
 
@@ -288,24 +288,24 @@ describe('Diment Multi Signature Wallet', function () {
       }
     });
 
-    it('Transaction list is updated', async () => {
+    it("Transaction list is updated", async () => {
       const result = await _contractMultiSig.getTransactionCount();
       expect(+result.toString()).to.equal(transactionCount);
     });
 
-    it('Owner remove transaction data is correct after x2 confirmation', async () => {
+    it("Owner remove transaction data is correct after x2 confirmation", async () => {
       const result = await _contractMultiSig.getTransaction(
         currentTransactionId
       );
 
       expect(result.to.toString()).to.equal(_multiSigAddress);
-      expect(result.value.toString()).to.equal('0');
+      expect(result.value.toString()).to.equal("0");
       expect(result.data.toString()).to.equal(transactionData);
-      expect(result.executed).to.equal('0');
-      expect(result.numConfirmations.toString()).to.equal('0');
+      expect(result.executed).to.equal("0");
+      expect(result.numConfirmations.toString()).to.equal("0");
     });
 
-    it('Transaction cannot execute with 1 confirmation', async () => {
+    it("Transaction cannot execute with 1 confirmation", async () => {
       try {
         await _contractMultiSig
           .connect(owner)
@@ -316,7 +316,7 @@ describe('Diment Multi Signature Wallet', function () {
       }
     });
 
-    it('Transaction will approve with addr2', async () => {
+    it("Transaction will approve with addr2", async () => {
       try {
         await _contractMultiSig
           .connect(addr2)
@@ -327,7 +327,7 @@ describe('Diment Multi Signature Wallet', function () {
       }
     });
 
-    it('Transaction will approve with addr3', async () => {
+    it("Transaction will approve with addr3", async () => {
       try {
         await _contractMultiSig
           .connect(addr3)
@@ -338,7 +338,7 @@ describe('Diment Multi Signature Wallet', function () {
       }
     });
 
-    it('Transaction will approve with addr1', async () => {
+    it("Transaction will approve with addr1", async () => {
       try {
         await _contractMultiSig
           .connect(addr1)
@@ -349,7 +349,7 @@ describe('Diment Multi Signature Wallet', function () {
       }
     });
 
-    it('Transaction will approve with addr3', async () => {
+    it("Transaction will approve with addr3", async () => {
       try {
         await _contractMultiSig
           .connect(addr3)
@@ -361,15 +361,15 @@ describe('Diment Multi Signature Wallet', function () {
       }
     });
 
-    it('Transaction revoke and confrim amount is correct', async () => {
+    it("Transaction revoke and confrim amount is correct", async () => {
       const result = await _contractMultiSig.getTransaction(
         currentTransactionId
       );
 
-      expect(result[4].toString()).to.equal('2');
+      expect(result[4].toString()).to.equal("2");
     });
 
-    it('Transaction cannot execute with under approved amount', async () => {
+    it("Transaction cannot execute with under approved amount", async () => {
       try {
         await _contractMultiSig
           .connect(addr3)
@@ -380,7 +380,7 @@ describe('Diment Multi Signature Wallet', function () {
       }
     });
 
-    it('Transaction will approve with owner', async () => {
+    it("Transaction will approve with owner", async () => {
       try {
         await _contractMultiSig
           .connect(owner)
@@ -390,7 +390,7 @@ describe('Diment Multi Signature Wallet', function () {
         expect(false).to.equal(true);
       }
     });
-    it('Transaction will be execute with approved amount', async () => {
+    it("Transaction will be execute with approved amount", async () => {
       try {
         await _contractMultiSig
           .connect(addr4)
@@ -411,12 +411,12 @@ describe('Diment Multi Signature Wallet', function () {
     //   assert(result.toString() == owners.toString(), 'arr are not same');
     // });
 
-    it('Replace addr3 with addr5', async () => {
+    it("Replace addr3 with addr5", async () => {
       owners.pop();
       owners.push(addr5.address);
 
       transactionData = await _contractMultiSig.interface.encodeFunctionData(
-        'replaceOwner',
+        "replaceOwner",
         [addr3.address, addr5.address]
       );
 
@@ -434,12 +434,12 @@ describe('Diment Multi Signature Wallet', function () {
       }
     });
 
-    it('Transaction list is updated', async () => {
+    it("Transaction list is updated", async () => {
       const result = await _contractMultiSig.getTransactionCount();
       expect(+result.toString()).to.equal(transactionCount);
     });
 
-    it('Transaction will approve with x3', async () => {
+    it("Transaction will approve with x3", async () => {
       try {
         await _contractMultiSig
           .connect(addr1)
@@ -456,7 +456,7 @@ describe('Diment Multi Signature Wallet', function () {
       }
     });
 
-    it('Transaction execute', async () => {
+    it("Transaction execute", async () => {
       try {
         await _contractMultiSig
           .connect(addr3)
@@ -467,12 +467,12 @@ describe('Diment Multi Signature Wallet', function () {
       }
     });
 
-    it('addr5 is replaced buy addr3', async () => {
+    it("addr5 is replaced buy addr3", async () => {
       const result = await _contractMultiSig.isOwner(addr5.address);
       expect(result).to.equal(true);
     });
 
-    it('addr6 is not owner', async () => {
+    it("addr6 is not owner", async () => {
       const result = await _contractMultiSig.isOwner(addr6.address);
       expect(result).to.equal(false);
     });

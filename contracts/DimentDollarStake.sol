@@ -232,11 +232,6 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
             revert NotEnoughTokens();
         }
 
-        // toplam stake reward kazanacagi miktardan az mi cok mu
-        uint256 rewardAmount = (stakeRates[rate] * amount) / PERCENT_DIVIDER;
-        if (rewardAmount > totalRewardsLeft) {
-            revert NotEnoughTokensForStakeReward();
-        }
         _;
     }
 
@@ -488,6 +483,10 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
         // calculate rewards via staked amount
         uint256 rewardAmount = (stakeRates[rate] * stakeAmount) /
             PERCENT_DIVIDER;
+        if (rewardAmount > totalRewardsLeft) {
+            revert NotEnoughTokensForStakeReward();
+        }
+
         totalRewardsLeft -= rewardAmount;
 
         Stake memory stakeToSave = Stake({

@@ -48,14 +48,14 @@ async function main() {
 
   console.log("Diment Dollar deployed to:", await _diment.getAddress());
 
-  const _dimentStake = await ethers.deployContract("DimentDollarStake", [
-    await _diment.getAddress(),
-    "0xA7b82A27721BF6271596F23A1540915Cd264234F",
-    1000000000,
-  ]);
+  // const _dimentStake = await ethers.deployContract("DimentDollarStake", [
+  //   await _diment.getAddress(),
+  //   "0xA7b82A27721BF6271596F23A1540915Cd264234F",
+  //   1000000000,
+  // ]);
 
-  await _dimentStake.waitForDeployment();
-  console.log("Diment Stake deployed to:", await _dimentStake.getAddress());
+  // await _dimentStake.waitForDeployment();
+  // console.log("Diment Stake deployed to:", await _dimentStake.getAddress());
 }
 
 // We recommend this pattern to be able to use async/await everywhere
