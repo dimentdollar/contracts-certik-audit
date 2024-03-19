@@ -157,25 +157,15 @@ describe("Diment Dollar Stake", function () {
       }
     });
 
-    it("Min harvest time is 6 months", async () => {
-      const result = await _contractStake.minHarvestRate();
-      expect(result.toString()).to.eq("180");
-    });
-
     it("Change Min harvest time to 3 months", async () => {
-      await _contractStake.setMinHarvestRate(90);
-      const result = await _contractStake.minHarvestRate();
-      expect(result.toString()).to.eq("90");
-    });
-
-    it("Max Emergency withdraw on 3 months", async () => {
-      const result = await _contractStake.maxEmergencyWithdrawRate();
+      await _contractStake.setMinHarvestTerm(90);
+      const result = await _contractStake.minHarvestTerm();
       expect(result.toString()).to.eq("90");
     });
 
     it("Change Max Emergency withdraw to 6 months", async () => {
-      await _contractStake.setMaxEmergencyWithdrawRate(180);
-      const result = await _contractStake.maxEmergencyWithdrawRate();
+      await _contractStake.setMaxEmergencyWithdrawTerm(180);
+      const result = await _contractStake.maxEmergencyWithdrawTerm();
       expect(result.toString()).to.eq("180");
     });
 
@@ -191,7 +181,7 @@ describe("Diment Dollar Stake", function () {
     });
 
     it("Total Reward Claimed Amount is zero", async () => {
-      const result = await _contractStake.totalStakeRewardClaimed();
+      const result = await _contractStake.totalRewardClaimed();
       expect(result.toString()).to.eq("0");
     });
 
@@ -471,7 +461,7 @@ describe("Diment Dollar Stake", function () {
     });
 
     it("Total Reward Claimed Amount is correct", async () => {
-      const result = await _contractStake.totalStakeRewardClaimed();
+      const result = await _contractStake.totalRewardClaimed();
       expect(+result.toString()).to.greaterThan(0);
     });
 

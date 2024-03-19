@@ -130,8 +130,8 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
         uint256 amount,
         uint256 timestamp,
         address indexed user,
-        uint32 rewardRatio,
-        uint32 rate,
+        uint32 rewardRate,
+        uint32 term,
         uint8 isActive
     );
     event EmergenyWithdrawed(address indexed user, uint256 amount);
@@ -140,16 +140,16 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
 
     // owner events
     event StakeFeeChanged(uint256 feepercent);
-    event StakeRateSetted(uint256 amount);
-    event EmergenyWithdrawFeeChanged(uint32 percent);
-    event MaxEmergencyWithdrawRateChange(uint32 percent);
-    event MinHarvestRateChange(uint32 rate);
+    event StakeRateSetted(uint32 term, uint32 rewardRate);
+    event EmergenyWithdrawFeeChanged(uint32 rewardRate);
+    event MaxEmergencyWithdrawTermChange(uint32 rewardRate);
+    event MinHarvestTermChange(uint32 term);
     event MinStakeAmountChanged(uint256 amount);
-    event StakePlusAmountChanged(uint32 percent);
+    event StakePlusRewardRateChanged(uint32 rewardRate);
     event StakePlusAddressAdded(address[] wallets);
     event StakePlusAddressStatusChanges(address wallet);
     event StakeFeeAddressChanged(address wallet);
-    event RewardsFromContract(uint256 amount);
+    event RewardsMoveFromContract(uint256 amount);
     event RewardsAddedToContract(uint256 amount);
 
     IERC20Permit public immutable dimentDollar;
@@ -157,18 +157,18 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
         uint256 amount;
         uint256 since;
         address user;
-        uint32 rewardRatio;
-        uint32 rate;
+        uint32 rewardRate;
+        uint32 term; // stake period in days
         uint8 isActive;
     }
 
     uint256 public constant PERCENT_DIVIDER = 10_000; // 10_000
-    uint256 public constant MAX_STAKE_RATE = 10_000; // 10_000 will multiply by date
+    uint256 public constant MAX_TERM = 1_000; // 1_000 will multiply by date
 
     uint256 public minStakeAmount;
 
     uint256 public totalStakedAmount;
-    uint256 public totalStakeRewardClaimed;
+    uint256 public totalRewardClaimed;
     uint256 public totalRewardsLeft;
 
     address public stakeFeeAddress;
@@ -177,8 +177,8 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
     uint32 public stakeFee = 0; // 0%
     uint32 public stakePlus = 0; // 0%
 
-    uint32 public maxEmergencyWithdrawRate = 90; // 3 months
-    uint32 public minHarvestRate = 180; // 6 months
+    uint32 public maxEmergencyWithdrawTerm;
+    uint32 public minHarvestTerm;
 
     uint16 public stakeId;
     uint16[] private allStakeIds;
@@ -188,7 +188,7 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
 
     mapping(uint32 => Stake) public stakedToken;
     mapping(uint32 => uint32) public stakeRates;
-    mapping(uint32 => uint256) private totalStakesByRate;
+    mapping(uint32 => uint256) private totalStakesByTerm;
 
     constructor(
         address dimentDollar_,
@@ -218,12 +218,12 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
         _;
     }
 
-    modifier stakeRequirementsCheck(uint256 amount, uint32 rate) {
+    modifier stakeRequirementsCheck(uint256 amount, uint32 term) {
         if (amount < minStakeAmount) {
             revert AmountNotInRange();
         }
 
-        if (stakeRates[rate] == 0) {
+        if (stakeRates[term] == 0) {
             revert StakeRateNotFound();
         }
 
@@ -235,30 +235,30 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
         _;
     }
 
-    // @dev emergeny withdraw rate limit changer
-    function setMaxEmergencyWithdrawRate(uint32 rate) external onlyOwner {
-        if (rate == 0 || stakeRates[rate] == 0) {
+    // @dev emergeny withdraw term limit changer
+    function setMaxEmergencyWithdrawTerm(uint32 term) external onlyOwner {
+        if (term == 0 || stakeRates[term] == 0) {
             revert CanNotSetToZero();
         }
-        if (rate > MAX_STAKE_RATE) {
+        if (term > MAX_TERM) {
             revert NotInRange();
         }
 
-        maxEmergencyWithdrawRate = rate;
-        emit MaxEmergencyWithdrawRateChange(rate);
+        maxEmergencyWithdrawTerm = term;
+        emit MaxEmergencyWithdrawTermChange(term);
     }
 
-    // @dev harvest rate limit changer
-    function setMinHarvestRate(uint32 rate) external onlyOwner {
-        if (rate == 0 || stakeRates[rate] == 0) {
+    // @dev harvest term limit changer
+    function setMinHarvestTerm(uint32 term) external onlyOwner {
+        if (term == 0 || stakeRates[term] == 0) {
             revert CanNotSetToZero();
         }
 
-        if (rate > MAX_STAKE_RATE) {
+        if (term > MAX_TERM) {
             revert NotInRange();
         }
-        minHarvestRate = rate;
-        emit MinHarvestRateChange(rate);
+        minHarvestTerm = term;
+        emit MinHarvestTermChange(term);
     }
 
     // @dev min stake amount changer
@@ -302,35 +302,35 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
         return stakePlusAddress[wallet];
     }
 
-    // @dev setting stake rates
-    function setStakeRate(uint32 rate, uint32 rewardRatio) public onlyOwner {
-        if (rate == 0 || rewardRatio == 0) {
+    // @dev setting stake rate
+    function setStakeRate(uint32 term, uint32 rewardRate) public onlyOwner {
+        if (term == 0 || rewardRate == 0) {
             revert CanNotSetToZero();
         }
 
-        if (rate > MAX_STAKE_RATE) {
+        if (term > MAX_TERM) {
             revert NotInRange();
         }
 
-        // check rate is in range
-        if (rewardRatio > PERCENT_DIVIDER) {
+        // check reward rate is in range
+        if (rewardRate > PERCENT_DIVIDER) {
             revert NotInRange();
         }
 
-        // rate is month rewardRate calculation over PERCENT_DIVIDER be careful
-        stakeRates[rate] = rewardRatio;
-        emit StakeRateSetted(rate);
+        // term is month rewardRate calculation over PERCENT_DIVIDER be careful
+        stakeRates[term] = rewardRate;
+        emit StakeRateSetted(term, rewardRate);
     }
 
-    // @dev seting set plus rate
-    function setStakePlus(uint32 raito) external onlyOwner {
+    // @dev seting set plus reward rate
+    function setStakePlus(uint32 rewardRate) external onlyOwner {
         // calculation over PERCENT_DIVIDER be careful
-        if (raito == 0 || raito > PERCENT_DIVIDER) {
+        if (rewardRate == 0 || rewardRate > PERCENT_DIVIDER) {
             revert NotInRange();
         }
 
-        stakePlus = raito;
-        emit StakePlusAmountChanged(raito);
+        stakePlus = rewardRate;
+        emit StakePlusRewardRateChanged(rewardRate);
     }
 
     // @dev setting emergeny withdraw fee if user want to exit before time limit should pay fee
@@ -367,19 +367,19 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
     }
 
     // @dev this function is for frontend easy calculations
-    function getTotalStakesByRate(uint32 rate) external view returns (uint256) {
-        return totalStakesByRate[rate];
+    function getTotalStakesByTerm(uint32 term) external view returns (uint256) {
+        return totalStakesByTerm[term];
     }
 
     // @dev stakeing
     function stake(
         uint256 amount,
-        uint32 rate
+        uint32 term
     )
         external
         nonReentrant
         onlyEOA
-        stakeRequirementsCheck(amount, rate)
+        stakeRequirementsCheck(amount, term)
         returns (uint16)
     {
         // user send tokens to stake contract
@@ -388,19 +388,19 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
             "Transfer Error"
         );
 
-        return _stake(msg.sender, amount, rate);
+        return _stake(msg.sender, amount, term);
     }
 
     // @dev user can stake for another user
     function stakeFor(
         address wallet,
         uint256 amount,
-        uint32 rate
+        uint32 term
     )
         external
         nonReentrant
         onlyEOA
-        stakeRequirementsCheck(amount, rate)
+        stakeRequirementsCheck(amount, term)
         returns (uint16)
     {
         if (wallet == address(0)) {
@@ -413,13 +413,13 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
             "Transfer Error"
         );
 
-        return _stake(wallet, amount, rate);
+        return _stake(wallet, amount, term);
     }
 
     /// @dev stake with permit
     function stakeWithPermit(
         uint256 amount,
-        uint32 rate,
+        uint32 term,
         uint32 deadline,
         uint8 v,
         bytes32 r,
@@ -428,7 +428,7 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
         external
         nonReentrant
         onlyEOA
-        stakeRequirementsCheck(amount, rate)
+        stakeRequirementsCheck(amount, term)
         returns (uint256)
     {
         dimentDollar.permit(
@@ -446,14 +446,14 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
             "Transfer Error"
         );
 
-        return _stake(msg.sender, amount, rate);
+        return _stake(msg.sender, amount, term);
     }
 
     // @dev stakeing internal
     function _stake(
         address wallet,
         uint256 amount,
-        uint32 rate
+        uint32 term
     ) internal returns (uint16) {
         uint256 stakeFeeAmount = 0;
         uint256 stakeAmount = amount;
@@ -477,24 +477,24 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
 
         allStakeIds.push(_id);
         stakesByAddress[wallet].push(_id);
-        totalStakesByRate[rate] += stakeAmount;
+        totalStakesByTerm[term] += stakeAmount;
         totalStakedAmount += stakeAmount;
 
         // calculate rewards via staked amount
-        uint256 rewardAmount = (stakeRates[rate] * stakeAmount) /
+        uint256 rewardAmount = (stakeRates[term] * stakeAmount) /
             PERCENT_DIVIDER;
         if (rewardAmount > totalRewardsLeft) {
             revert NotEnoughTokensForStakeReward();
         }
-
+        // total rewards should update
         totalRewardsLeft -= rewardAmount;
 
         Stake memory stakeToSave = Stake({
             user: wallet,
             amount: stakeAmount,
             since: block.timestamp,
-            rewardRatio: stakeRates[rate],
-            rate: rate,
+            rewardRate: stakeRates[term],
+            term: term,
             isActive: 1
         });
 
@@ -504,8 +504,8 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
             stakeAmount,
             block.timestamp,
             msg.sender,
-            stakeRates[rate],
-            rate,
+            stakeRates[term],
+            term,
             1
         );
 
@@ -514,7 +514,7 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
 
     // @dev calculate stake reward
     function calculateStakeRewards(uint16 id) public view returns (uint256) {
-        uint256 rewardAmount = (stakedToken[id].rewardRatio *
+        uint256 rewardAmount = (stakedToken[id].rewardRate *
             stakedToken[id].amount) / PERCENT_DIVIDER;
         return rewardAmount;
     }
@@ -530,7 +530,7 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
             revert StakeIsNotActive();
         }
 
-        if (stakeToHarvest.rate < minHarvestRate) {
+        if (stakeToHarvest.term < minHarvestTerm) {
             revert CannotHarvestThisStake();
         }
 
@@ -546,7 +546,7 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
 
         // check user can make stake again
         // every harvest is update time so need to check stake reward left in contract
-        uint256 rewardAmount = (stakeToHarvest.rewardRatio *
+        uint256 rewardAmount = (stakeToHarvest.rewardRate *
             stakeToHarvest.amount) / PERCENT_DIVIDER;
 
         if (rewardAmount > totalRewardsLeft - stakeMonthlyReward) {
@@ -554,7 +554,7 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
         }
 
         // total rewards update
-        totalStakeRewardClaimed += stakeMonthlyReward;
+        totalRewardClaimed += stakeMonthlyReward;
 
         // total rewards claim update
         totalRewardsLeft -= stakeMonthlyReward;
@@ -590,7 +590,7 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
         }
 
         uint256 _daysPastRewardRate = (totalDaysPast *
-            stakeToHarvest.rewardRatio) / (stakeToHarvest.rate);
+            stakeToHarvest.rewardRate) / (stakeToHarvest.term);
 
         uint256 stakeRewardAmount = (stakeToHarvest.amount *
             _daysPastRewardRate) / PERCENT_DIVIDER;
@@ -605,10 +605,6 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
 
         if (stakeRewardAmount == 0) {
             revert ZeroRewardHarvest();
-        }
-
-        if (totalRewardsLeft < stakeRewardAmount) {
-            stakeRewardAmount = totalRewardsLeft;
         }
 
         return stakeRewardAmount;
@@ -626,7 +622,7 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
             revert NotYourToken();
         }
 
-        if (block.timestamp < stakeToExit.since + (stakeToExit.rate * 1 days)) {
+        if (block.timestamp < stakeToExit.since + (stakeToExit.term * 1 days)) {
             revert TimeNotYet();
         }
 
@@ -644,14 +640,14 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
     // @dev exit internal
     function _exit(Stake memory stakeToExit) internal returns (uint256) {
         uint256 stakeAmount = stakeToExit.amount;
-        uint256 rewardAmount = (stakeToExit.rewardRatio * stakeAmount) /
+        uint256 rewardAmount = (stakeToExit.rewardRate * stakeAmount) /
             PERCENT_DIVIDER;
 
         totalStakedAmount -= stakeAmount;
-        totalStakesByRate[stakeToExit.rate] -= stakeAmount;
+        totalStakesByTerm[stakeToExit.term] -= stakeAmount;
 
         // total rewards given update
-        totalStakeRewardClaimed += rewardAmount;
+        totalRewardClaimed += rewardAmount;
 
         return stakeAmount + rewardAmount;
     }
@@ -670,7 +666,7 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
             revert StakeIsNotActive();
         }
 
-        if (stakeToExit.rate > maxEmergencyWithdrawRate) {
+        if (stakeToExit.term > maxEmergencyWithdrawTerm) {
             revert CannotExitThisStake();
         }
 
@@ -685,11 +681,11 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
 
         totalStakedAmount -= _stakedTokenAmount;
 
-        totalStakesByRate[stakeToExit.rate] -= _stakedTokenAmount;
+        totalStakesByTerm[stakeToExit.term] -= _stakedTokenAmount;
 
         // no rewards for user
-        // we shouldupdate reward amount with exited not rewarded stake details
-        uint256 rewardAmount = (stakeToExit.rewardRatio * stakeToExit.amount) /
+        // we should update reward amount with exited not rewarded stake details
+        uint256 rewardAmount = (stakeToExit.rewardRate * stakeToExit.amount) /
             PERCENT_DIVIDER;
         totalRewardsLeft += rewardAmount;
 
@@ -727,8 +723,8 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
             address user,
             uint256 amount,
             uint256 since,
-            uint32 rewardRatio,
-            uint32 rate,
+            uint32 rewardRate,
+            uint32 term,
             uint8 isActive
         )
     {
@@ -736,8 +732,8 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
             stakedToken[id].user,
             stakedToken[id].amount,
             stakedToken[id].since,
-            stakedToken[id].rewardRatio,
-            stakedToken[id].rate,
+            stakedToken[id].rewardRate,
+            stakedToken[id].term,
             stakedToken[id].isActive
         );
     }
@@ -774,7 +770,7 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
             amount = _afterBalance;
         }
 
-        emit RewardsFromContract(amount); // event emitted before the external call
+        emit RewardsMoveFromContract(amount); // event emitted before the external call
 
         require(dimentDollar.transfer(to, amount), "Reward transfer error");
     }
