@@ -163,7 +163,7 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
     }
 
     uint256 public constant PERCENT_DIVIDER = 10_000; // 10_000
-    uint256 public constant MAX_TERM = 1_000; // 1_000 will multiply by date
+    uint256 public constant MAX_TERM = 10_000; // 10_000 will multiply by date
 
     uint256 public minStakeAmount;
 
@@ -473,6 +473,13 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
             );
         }
 
+        // calculate rewards via staked amount
+        uint256 rewardAmount = (stakeRates[term] * stakeAmount) /
+            PERCENT_DIVIDER;
+        if (rewardAmount > totalRewardsLeft) {
+            revert NotEnoughTokensForStakeReward();
+        }
+
         uint16 _id = ++stakeId;
 
         allStakeIds.push(_id);
@@ -480,12 +487,6 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
         totalStakesByTerm[term] += stakeAmount;
         totalStakedAmount += stakeAmount;
 
-        // calculate rewards via staked amount
-        uint256 rewardAmount = (stakeRates[term] * stakeAmount) /
-            PERCENT_DIVIDER;
-        if (rewardAmount > totalRewardsLeft) {
-            revert NotEnoughTokensForStakeReward();
-        }
         // total rewards should update
         totalRewardsLeft -= rewardAmount;
 

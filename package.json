@@ -3,12 +3,12 @@
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "^3.0.5",
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
-    "@openzeppelin/hardhat-upgrades": "^3.0.2",
+    "@openzeppelin/hardhat-upgrades": "^3.0.5",
     "ethers": "^6.10.0"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^5.0.1",
-    "@openzeppelin/contracts-upgradeable": "^5.0.1",
+    "@openzeppelin/contracts": "^5.0.2",
+    "@openzeppelin/contracts-upgradeable": "^5.0.2",
     "@openzeppelin/test-helpers": "^0.5.16",
     "big.js": "^6.2.1",
     "dotenv": "^16.3.1",

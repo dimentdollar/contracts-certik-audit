@@ -152,7 +152,6 @@ contract DimentMultiSignatureWallet {
             revert NotVaildRequirement();
         }
 
-        // to not use storage
         uint8 i;
 
         for (i = 0; i < arrLength; i++) {

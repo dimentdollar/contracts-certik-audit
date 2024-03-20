@@ -129,27 +129,16 @@ contract DimentDollar is
         address[] memory recipients_,
         uint256[] memory amounts_
     ) external onlyNotBlacklisted {
-        if (recipients_.length != amounts_.length) {
+        uint256 arrLen = amounts_.length;
+
+        if (arrLen != recipients_.length) {
             revert LengthMismatch(recipients_.length, amounts_.length);
         }
-        // array are same length
-        uint256 arrLength = amounts_.length;
-
-        if (arrLength > 50) {
+        if (arrLen > 50) {
             revert MoreThenLimit();
         }
 
-        uint256 totalSend = 0;
-        uint256 _balance = super.balanceOf(_msgSender());
-
-        for (uint8 i = 0; i < arrLength; i++) {
-            totalSend = totalSend + amounts_[i];
-        }
-        if (_balance < totalSend) {
-            revert NotEnoughTokens();
-        }
-
-        for (uint8 i = 0; i < arrLength; i++) {
+        for (uint8 i = 0; i < arrLen; i++) {
             transfer(recipients_[i], amounts_[i]);
         }
     }
@@ -179,20 +168,6 @@ contract DimentDollar is
     }
 
     /**
-     * @dev Burns the all funds associated with a blacklisted account, reducing the total token supply.
-     *
-     * @param blacklistedUser_ The address of the blacklisted account whose funds will be burned.
-     */
-    function destroyBlockedFunds(address blacklistedUser_) external onlyOwner {
-        if (!isBlacklisted[blacklistedUser_]) {
-            revert OnlyBlacklisted(blacklistedUser_);
-        }
-        uint blockedFunds = balanceOf(blacklistedUser_);
-        _burn(blacklistedUser_, blockedFunds);
-        emit DestroyedBlockedFunds(blacklistedUser_, blockedFunds);
-    }
-
-    /**
      * @dev Adds a user to the blacklist, restricting their access to certain functionalities.
      *
      * @param user_ The address of the user to be added to the blacklist.
@@ -217,16 +192,29 @@ contract DimentDollar is
         emit UnBlacklisted(user_);
         return true;
     }
+
+    /**
+     * @dev Burns the all funds associated with a blacklisted account, reducing the total token supply.
+     *
+     * @param blacklistedUser_ The address of the blacklisted account whose funds will be burned.
+     */
+    function destroyBlockedFunds(address blacklistedUser_) external onlyOwner {
+        if (!isBlacklisted[blacklistedUser_]) {
+            revert OnlyBlacklisted(blacklistedUser_);
+        }
+        uint blockedFunds = balanceOf(blacklistedUser_);
+        _burn(blacklistedUser_, blockedFunds);
+        emit DestroyedBlockedFunds(blacklistedUser_, blockedFunds);
+    }
 }
 
 /**
  * @dev Defines custom error messages that may be thrown during the execution of the contract.
  * These errors provide information about exceptional conditions and can be caught or used for debugging.
  */
-error BlacklistedAccount(address user);
 error TransferToContract();
-error WalletBlacklisted(address user);
 error MoreThenLimit();
 error LengthMismatch(uint recipients, uint amounts);
-error NotEnoughTokens();
+error WalletBlacklisted(address user);
+error BlacklistedAccount(address user);
 error OnlyBlacklisted(address user);
