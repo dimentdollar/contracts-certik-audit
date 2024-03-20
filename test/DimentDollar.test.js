@@ -8,6 +8,7 @@ describe("DimentDollar", function () {
   // and reset Hardhat Network to that snapshot in every test.
   let _mintAmount = hre.ethers.parseUnits("1000000", 18);
   let _multisendAmount = hre.ethers.parseUnits("500000", 18);
+  let _multiMoresendAmount = hre.ethers.parseUnits("5000", 18);
 
   let _totalSupply = Big(0);
   let _contractProxy = null;
@@ -17,9 +18,12 @@ describe("DimentDollar", function () {
   let addr2 = null;
   let addr3 = null;
   let addr4 = null;
+  let addr5 = null;
+  let addr6 = null;
 
   before(async () => {
-    [owner, addr1, addr2, addr3, addr4] = await hre.ethers.getSigners();
+    [owner, addr1, addr2, addr3, addr4, addr5, addr6] =
+      await hre.ethers.getSigners();
     const DimentDollar = await hre.ethers.getContractFactory("DimentDollar");
 
     _contractProxy = await hre.upgrades.deployProxy(DimentDollar, [
@@ -110,6 +114,14 @@ describe("DimentDollar", function () {
       );
     });
 
+    it("Mint 1m tokens to add5", async function () {
+      await _contractProxy.mint(addr5.address, _mintAmount);
+      _totalSupply = _totalSupply.add(_mintAmount);
+      expect(await _contractProxy.balanceOf(addr5.address)).to.equal(
+        _mintAmount
+      );
+    });
+
     it("Addr2 Cannot mint tokens", async function () {
       try {
         await _contractProxy.connect(addr2).mint(addr1.address, _mintAmount);
@@ -139,6 +151,37 @@ describe("DimentDollar", function () {
       expect(await _contractProxy.balanceOf(addr2.address)).to.equal("0");
     });
 
+    it("Multitransfer 16 times", async function () {
+      const amountArr = Array(16).fill(_multiMoresendAmount);
+      const accountsArr = [
+        addr6,
+        addr6,
+        addr6,
+        addr6,
+        addr6,
+        addr6,
+        addr6,
+        addr6,
+        addr6,
+        addr6,
+        addr6,
+        addr6,
+        addr6,
+        addr6,
+        addr6,
+        addr6,
+      ];
+      try {
+        await _contractProxy
+          .connect(addr5)
+          .multiTransfer(accountsArr, amountArr);
+        expect(true).to.equal(true);
+      } catch (error) {
+        console.log(error);
+        expect(false).to.equal(true);
+      }
+    });
+
     it("Multitransfer 5 times", async function () {
       const amountArr = Array(2).fill(_multisendAmount);
       const accountsArr = [addr2, addr2];
@@ -153,7 +196,10 @@ describe("DimentDollar", function () {
       try {
         const amountArr = Array(6).fill(_multisendAmount);
         const accountsArr = [addr2, addr2, addr2, addr2, addr2, addr2];
-        await _contractProxy.multiTransfer(accountsArr, amountArr);
+        await _contractProxy
+          .connect(addr1)
+          .multiTransfer(accountsArr, amountArr);
+
         expect(false).to.equal(true);
       } catch (error) {
         expect(true).to.equal(true);
