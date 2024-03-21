@@ -16,7 +16,7 @@ error ZeroAddress();
 error NotEnoughConfirmation();
 
 contract DimentMultiSignatureWallet {
-    event Deposit(address indexed sender, uint256 amount, uint256 balance);
+    event Received(address indexed sender, uint256 amount, uint256 balance);
     event SubmitTransaction(
         address indexed owner,
         uint16 indexed txIndex,
@@ -31,6 +31,7 @@ contract DimentMultiSignatureWallet {
     event OwnerAdded(address indexed owner);
     event OwnerRemoved(address indexed owner);
     event RequirementChange(uint8 required);
+
     event ETHRemoved(address to);
 
     address[] private _owners;
@@ -175,7 +176,7 @@ contract DimentMultiSignatureWallet {
     }
 
     receive() external payable {
-        emit Deposit(msg.sender, msg.value, address(this).balance);
+        emit Received(msg.sender, msg.value, address(this).balance);
     }
 
     /**

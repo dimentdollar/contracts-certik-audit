@@ -474,17 +474,16 @@ contract DimentTimelockController is
     }
 
     /**
-     * @dev Execute an operation's call.
+     * @dev Checks after execution of an operation's calls.
      */
-    function _execute(
-        address target,
-        uint256 value,
-        bytes calldata data
-    ) internal virtual {
-        (bool success, bytes memory returndata) = target.call{value: value}(
-            data
-        );
-        Address.verifyCallResult(success, returndata);
+    function _afterCall(bytes32 id) private {
+        if (!isOperationReady(id)) {
+            revert TimelockUnexpectedOperationState(
+                id,
+                _encodeStateBitmap(OperationState.Ready)
+            );
+        }
+        _timestamps[id] = _DONE_TIMESTAMP;
     }
 
     /**
@@ -503,16 +502,17 @@ contract DimentTimelockController is
     }
 
     /**
-     * @dev Checks after execution of an operation's calls.
+     * @dev Execute an operation's call.
      */
-    function _afterCall(bytes32 id) private {
-        if (!isOperationReady(id)) {
-            revert TimelockUnexpectedOperationState(
-                id,
-                _encodeStateBitmap(OperationState.Ready)
-            );
-        }
-        _timestamps[id] = _DONE_TIMESTAMP;
+    function _execute(
+        address target,
+        uint256 value,
+        bytes calldata data
+    ) internal virtual {
+        (bool success, bytes memory returndata) = target.call{value: value}(
+            data
+        );
+        Address.verifyCallResult(success, returndata);
     }
 
     /**

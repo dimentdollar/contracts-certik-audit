@@ -19,7 +19,7 @@ module.exports = {
       arbitrumSepolia: process.env.ARBISCAN_KEY,
       arbitrumMainnet: process.env.ARBISCAN_KEY,
       bscTestnet: process.env.BSCSCAN_KEY,
-      bscMainnet: process.env.BSCSCAN_KEY,
+      bsc: process.env.BSCSCAN_KEY,
     },
   },
 
@@ -32,7 +32,7 @@ module.exports = {
   networks: {
     mainnet: {
       url: `https://mainnet.infura.io/v3/${process.env.INFURA_KEY}`,
-      accounts: [process.env.DEVNET_PRIVKEY],
+      accounts: [process.env.MAINNET_PRIVKEY],
     },
     sepolia: {
       url: `https://sepolia.infura.io/v3/${process.env.INFURA_KEY}`,
@@ -45,7 +45,7 @@ module.exports = {
 
     arbitrum_mainnet: {
       url: `https://arbitrum-mainnet.infura.io/v3/${process.env.INFURA_KEY}`,
-      accounts: [process.env.DEVNET_PRIVKEY],
+      accounts: [process.env.MAINNET_PRIVKEY],
     },
     arbitrum_sepolia: {
       url: `https://arbitrum-sepolia.infura.io/v3/${process.env.INFURA_KEY}`,
@@ -56,7 +56,7 @@ module.exports = {
       url: "https://bsc-dataseed.bnbchain.org/",
       chainId: 56,
       gasPrice: 20000000000,
-      accounts: [process.env.DEVNET_PRIVKEY],
+      accounts: [process.env.MAINNET_PRIVKEY],
     },
     bsc_testnet: {
       url: "https://data-seed-prebsc-1-s1.bnbchain.org:8545",
