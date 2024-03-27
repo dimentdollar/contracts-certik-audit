@@ -783,10 +783,11 @@ contract DimentDollarStake is Ownable, ReentrancyGuard {
         }
 
         emit RewardsAddedToContract(amount);
+
+        totalRewardsLeft += amount;
         require(
             dimentDollar.transferFrom(msg.sender, address(this), amount),
             "Transfer Error"
         );
-        totalRewardsLeft += amount;
     }
 }
